@@ -162,6 +162,7 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
     if any(strcmp(modifier,'shift')) % if shift key is pressed
         if isempty(subnode{me}) % if there is no subnode
             subnode{me} = 1; % set it to itself
+            subid{me} = [];
         else % otherwise
             subnode{me} = [subnode{me}(:); length(subid{me}) + 1];
         end
