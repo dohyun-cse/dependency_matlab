@@ -129,6 +129,8 @@ newdates = newdates(isNotMethod);
 isClass = isClass(isNotMethod);
 
 fprintf('Generating Dependencies for %d files...', length(newfuns))
+p = path;
+addpath(genpath(pwd));
 fList = arrayfun(...
     @(i) matlab.codetools.requiredFilesAndProducts(newpaths{i}, 'toponly'),  ...
     1:length(newpaths), 'uniformoutput',false);
@@ -141,6 +143,8 @@ for i = 1 : length(fList)
 %         newpaths{i} = [newpaths{i}];
     end
 end
+rmpath(genpath(pwd));
+addpath(p);
 fprintf('\n');
 
 %% PART 4. CONSTRUCT TABLE AND GRAPH
