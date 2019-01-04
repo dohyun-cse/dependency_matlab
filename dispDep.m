@@ -77,6 +77,7 @@ layout(h,'layered','Direction','right');
 matlabversion = ver('MATLAB');
 if matlabversion.Version >= 9.5
     h.Interpreter = 'none';
+    h.NodeFontSize = 12;
 end
 
 title(ax, {directory, '..'});
@@ -200,6 +201,7 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
         matlabversion = ver('MATLAB');
         if matlabversion.Version >= 9.5
             subh{me}.Interpreter = 'none';
+            subh{me}.NodeFontSize = 12;
         end
         
         % highlight selected node
