@@ -79,7 +79,7 @@ if matlabversion.Version >= 9.5
     h.Interpreter = 'none';
 end
 
-title(ax, directory);
+title(ax, {directory, '..'});
 
 % appearance
 ax.Title.Interpreter = 'none';
@@ -157,9 +157,8 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
     parents = highlightParents(h, nodeID, adj);
     children = highlightChildren(h, nodeID, adj);
     
-    % get short names
-    h.Parent.Title.String = G.Nodes(nodeID,:).Short_Name{1};
     if any(strcmp(modifier,'shift')) % if shift key is pressed
+        h.Parent.Title.String{2} = [h.Parent.Title.String{2}, ',   ', strrep(G.Nodes(nodeID,:).Row{1}, h.Parent.Title.String{1}, '')];
         if isempty(subnode{me}) % if there is no subnode
             subnode{me} = 1; % set it to itself
             subid{me} = [];
@@ -169,6 +168,7 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
         [subid{me}, ~, id] = unique([subid{me}(:);nodeID(:);parents(:);children(:)]); % append new node ID and its parents and children to subid
         subnode{me} = id(subnode{me});
     else
+        h.Parent.Title.String{2} = strrep(G.Nodes(nodeID,:).Row{1}, h.Parent.Title.String{1}, '');
         % same but whithout append
         [subid{me},~,id] = unique([nodeID(:);parents(:);children(:)]);
         subid{me} = round(subid{me});
@@ -206,6 +206,7 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
         highlight(subh{me}, subnode{me}, 'nodecolor',[1,0.5,0.5],'markersize',15)
 
         % appearance of axis
+        title(subax{me}, h.Parent.Title.String);
         subax{me}.Title.Interpreter = 'none';
         axis(subax{me}, 'tight');
         set(subax{me},'XColor','none');
@@ -255,9 +256,7 @@ function dehighlightFun(h, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWid
     h.MarkerSize = orgMarkerSize;
     h.EdgeColor = orgEdgeColor;
     h.LineWidth = orgLineWidth;
-    if iscell(h.Parent.Title.String)
-        h.Parent.Title.String(2:end) = [];
-    end
+    h.Parent.Title.String{2} = '..';
 end
 %%
 % ======================================================= end of subfunction
