@@ -40,8 +40,8 @@ function [H, G] = dispDep(G_or_directory)
 %
 %% RENAMED FROM : dispDependency, August 06, 2018
 %% DATE         : August 04, 2018
-%% VERSION      : 1.00 
-%% MATLAB ver.  : 9.4.0.813654 (R2018a)
+%% VERSION      : 1.01 
+%% MATLAB ver.  : 9.5.0.944444 (R2018b)
 %% AUTHOR       : Dohyun Kim
 %% CONTACT      : kim92n@gmail.com
 
