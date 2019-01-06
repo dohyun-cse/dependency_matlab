@@ -1,4 +1,4 @@
-function GG = genDep(directory)
+function GG = genDep(directory, varargin)
 % <SYNTAX>
 %
 % genDep
@@ -28,168 +28,154 @@ function GG = genDep(directory)
 % 
 % See also, DISPDEPENDENCY
 % 
-%% RENAMED FROM : genDependency, August 06, 2018
 %% DATE         : August 06, 2018
-%% VERSION      : 1.01 
+%% VERSION      : 2.00
 %% MATLAB ver.  : 9.5.0.944444 (R2018b)
 %% AUTHOR       : Dohyun Kim
 %% CONTACT      : kim92n@gmail.com
-
 %=========================================================end of definition
 %%
-if ~nargin
+if nargin == 0
     directory = pwd;
 end
-%% PART 1. LOAD DEPENDENCY
+directory = strrep(directory,filesep,'/');
+files = dir(sprintf('%s/**/*.m',directory)); % get all matlab files
 
-directory = strrep(directory, filesep, '/');
-oldpwd = pwd;
-cd(directory);
-try
-    G = load('./.dependency/G.mat','G'); % if exists
-    G = G.G;
-    fprintf('Dependency file exists. Update old files\n'); % found!
-    T = G.Nodes; % get table
-catch % if does not exist
-    fprintf('Dependency file does not exist.\nCreate new one.\n');
-    % create new table and graph
-    T = table({},{},{},'RowNames', {});
-    T.Properties.VariableNames = {'Short_Name', 'Date', 'Children'};
-    G = digraph([],T);
-end
+[dirnames{1:length(files)}] = files.folder;
+[filenames{1:length(files)}] = files.name;
 
-%% PART 2. CHECK UPDATE AND DELETE
+dirnames = strrep(dirnames, filesep, '/');
+filenames = strrep(filenames, '.m', '');
 
-s = dir(sprintf('%s/**/*.m',strrep(pwd,filesep,'/'))); % get all matlab files
+nrfiles = length(filenames);
 
-newfuns = {s.name}.'; newfuns = strrep(newfuns,'.m',''); % function name
-newdates = cellfun(@(x) datetime(datevec(x)), {s.date}).'; % file creation dates
-newpaths = {s.folder}.'; % full paths
-newpaths = arrayfun(@(i) strrep(newpaths{i}, [pwd,filesep], ''), 1:length(newpaths),'UniformOutput',false);
-newpaths = arrayfun(@(i) strrep(newpaths{i}, pwd, ''), 1:length(newpaths),'UniformOutput',false);
-newpaths = arrayfun(@(i) strrep(newpaths{i}, filesep, '/'), 1:length(newpaths),'UniformOutput',false);
-newpaths = arrayfun(@(i) [newpaths{i} '/' newfuns{i} '.m'], 1:length(newfuns),'UniformOutput',false); % include file name
-for i = 1 : length(newpaths)
-    if strcmp(newpaths{i}(1),'/')
-        newpaths{i} = newpaths{i}(2:end);
-    end
-end
+clearvars files
 
-oldFiles = T.Row; % get old file names
-isDeleted = true(length(oldFiles),1); % assume all file is deleted
-isUpToDate = false(length(oldFiles),1); % assume all file is not up to date
-for i = 1 : length(oldFiles) % for each file
-    newid = find(strcmp(newpaths,oldFiles{i})); % check if old file still exists
-    if ~isempty(newid) % if it exists,
-        isDeleted(i) = false; % it is not deleted
-        if T.Date(i) >= newdates(newid) % if it is not updated
-            isUpToDate(i) = true; % data is up to date
-            % delete from new files
-            newfuns(newid) = [];
-            newdates(newid) = [];
-            newpaths(newid) = [];
-%         else
-%             T.Short_Name(i)
-%             [T.Date(i) newdates(newid)]
-%             pause
+%%
+
+fprintf('\nAnalyzing file ')
+
+paths = cell(size(filenames));
+childrennames = cell(size(filenames));
+adj = false(nrfiles, nrfiles);
+counting_string = '';
+for n = 1:nrfiles
+    filename = [dirnames{n}, '/', filenames{n}, '.m'];
+    paths{n} = strrep(filename, [directory, '/'], '');
+
+    old_numbering_string_length = length(counting_string);
+    counting_string = sprintf('%i/%i: %s', n, nrfiles, paths{n});
+    fprintf(1, [repmat('\b', 1, old_numbering_string_length), '%s'],  counting_string)
+
+    % Get content of file and remove special cases
+    fid = fopen(filename);
+    file_content = textscan(fid, '%s', 'Delimiter', '\n');
+    file_content = file_content{1};
+    fclose(fid);
+    for line_num = 1 : length(file_content)
+        file = file_content{line_num};
+        
+        % remove comment
+        hascomment = sort([strfind(file, '%'), strfind(file, '...')]); % find possible comment starting points
+        hasstring = strfind(file, ''''); % find string position
+        [file, hasstring] = removecomment(file, hascomment, hasstring);
+        
+        % check occurence
+        if ~isempty(file)
+            [adj(:,n), linechildrennames] = iscalled(file, hasstring, n, adj(:,n), dirnames, filenames);
+            childrennames{n} = [childrennames{n}, linechildrennames];
         end
     end
-end
-
-adj = G.adjacency; % get previous adjacency
-hasDeletedChildren = any(adj(isDeleted,:),1); % find parents of deleted files
-if any(isUpToDate(hasDeletedChildren)) % if parents is not updated, there must be a problem.
-    % return error
-    s = ['Parents of deleted files are not updated.' newline];
-    s = [s, sprintf('%s\n',T.Row(~isUpToDate & hasDeletedChildren,:))];
-    error(s);
-end
-
-%% PART 3. GET DEPENDENCY DATA FOR NEW DATA
-
-% get dependency data
-isNotMethod = ~contains(newpaths,'@');
-isClass = false(size(isNotMethod));
-for i = 1 : length(isNotMethod)
-    if ~isNotMethod(i)
-        st = strfind(newpaths{i},'@');
-        st = st(end)+1;
-        ed = strfind(newpaths{i},'/');
-        ed = ed(ed>st);
-        ed = ed(1)-1;
-        if strcmp(newpaths{i}(st:ed),newfuns{i})
-            isNotMethod(i) = true;
-            isClass(i) = true;
-        end
+    if any(adj(:,n))
+        childrennames{n} = childrennames{n}(3:end);
     end
 end
-newpaths = newpaths(isNotMethod);
-newfuns = newfuns(isNotMethod);
-newdates = newdates(isNotMethod);
-isClass = isClass(isNotMethod);
 
-fprintf('Generating Dependencies for %d files...', length(newfuns))
-p = path;
-addpath(genpath(pwd));
-fList = arrayfun(...
-    @(i) matlab.codetools.requiredFilesAndProducts(newpaths{i}, 'toponly'),  ...
-    1:length(newpaths), 'uniformoutput',false);
-fList = arrayfun(@(i) strrep(fList{i}, [pwd,filesep], ''), 1:length(fList),'UniformOutput',false);
-fList = arrayfun(@(i) strrep(fList{i}, pwd, ''), 1:length(fList),'UniformOutput',false);
-fList = arrayfun(@(i) strrep(fList{i}, filesep, '/'), 1:length(fList),'UniformOutput',false);
-for i = 1 : length(fList)
-    if isClass(i)
-        newfuns{i} = ['@',newfuns{i}];
-%         newpaths{i} = [newpaths{i}];
-    end
+counting_string = sprintf('%i/%i\n', n, nrfiles);
+fprintf(1, [repmat('\b',1,old_numbering_string_length), '%s'],  counting_string)
+
+T = table(filenames(:), childrennames(:), 'RowNames', paths(:));
+T.Properties.VariableNames = {'Short_Name', 'Children'};
+[T, idx] = sortrows(T,'RowNames');
+
+adj = adj(idx, idx);
+G = digraph(adj, T);
+
+if ~isfolder([directory, '/.dependency']) % if folder does not exists
+    mkdir([directory, '/.dependency']) % create folder
 end
-rmpath(genpath(pwd));
-addpath(p);
-fprintf('\n');
-
-%% PART 4. CONSTRUCT TABLE AND GRAPH
-
-T = T(~isDeleted & isUpToDate,:); % remove deleted files from table.
-
-fprintf('Creating adjacency matrix...');
-
-% new table
-% newpaths
-T2 = table(newfuns(:), newdates(:), ...
-    arrayfun(@(i) strjoin(fList{i}, ', '), 1:length(fList), 'UniformOutput',false).', ...
-    'RowNames', newpaths);
-T2.Properties.VariableNames = {'Short_Name', 'Date', 'Children'};
-
-% prepare for update
-oldLength = height(T); % store old the number of files
-T = [T;T2]; % concatenate table
-[T,idx] = sortrows(T,'RowNames'); % sort by function name and get index
-adj = G.adjacency; % get old adjacency matrix
-adj = adj(~isDeleted & isUpToDate, ~isDeleted & isUpToDate);
-adj(height(T),height(T)) = 0; % adjust size for new graph
-
-adj = adj(idx,idx); % reorder adjacency matrix for new table
-[~,idx] = sort(idx);
-idx = idx(oldLength + 1 : end); % remove old data
-
-% Update adjacency matrix
-for i = 1 : height(T2)
-    for j = 1 : length(fList{i})
-        adj(strcmp(T.Row,fList{i}{j}),idx(i)) = true;
-    end
-end
-G = digraph(adj, T, 'OmitSelfLoops'); % renew graph
-fprintf('\n');
-
-if ~isfolder('./.dependency') % if folder does not exists
-    mkdir ./.dependency % create folder
-end
-save ./.dependency/G.mat G % save graph
+save([directory, '/.dependency/dependency.mat'], 'G') % save graph
 
 fprintf('Dependency generation is done.\n');
-fprintf('File is saved in <%s/.dependency/G.mat>\n',strrep(pwd,filesep,'/'));
-cd(oldpwd);
+fprintf('File is saved in <%s/.dependency/dependency.mat>\n', directory);
+
 if nargout
     GG = G;
 end
+
+end
+
+%%
+
+function [file, hasstring] = removecomment(file, hascomment, hasstring)
+
+    if ~isempty(hascomment) % if there is candidate for comment,
+        % check if it is comment
+        if isempty(hasstring) % if there is no string
+            file = file(1:hascomment(1) - 1); % it is comment.
+        else % if there is comment
+            for comment_position = 1:length(hascomment) % for each possible candidate,
+                if ~mod(nnz(hasstring < hascomment(comment_position)),2)
+                    % if there is even number of string before % or ...
+                    % it is comment
+                    file = file(1:hascomment(comment_position) - 1);
+                    hasstring = hasstring(hasstring < hascomment(comment_position));
+                    break;
+                end
+            end
+        end
+    end
+end
+
+%%
+
+function [ischildren, childrens] = iscalled(file, hasstring, n, ischildren, dirnames, filenames)
+    
+    nrfiles = length(filenames);
+    childrens = '';
+    for other = 1:nrfiles
+        if other == n || ischildren(other) % if itself or already searched,
+            continue; % no need for further search
+        end
+        hasother = strfind(file, filenames{other}); % search for other file name
+        if ~isempty(hasother) % if it contains other file name
+            otherfile = filenames{other}; % get other file name
+            % for each occurence, 
+            for col = 1 : length(hasother)
+                othercol = hasother(col);
+                if mod(nnz(hasstring < othercol),2) % if it appeared in a string
+                    continue % no need for further search
+                end
+                % candidate1 = current name including previous charactor
+                % candidate2 = current name including next charactor
+                % Those two must be not a varname.
+                if othercol == 1 % if starting line
+                    candidate1 = '1'; % give invalid name
+                else % otherwise
+                    % get current with previous
+                    candidate1 = file(othercol-1 : othercol + length(otherfile) - 1);
+                end
+                if othercol + length(otherfile) > length(file) % if ending line
+                    candidate2 = '1'; % 
+                else
+                    candidate2 = file(othercol : othercol + length(otherfile));
+                end
+                if ~isvarname(candidate1) && ~isvarname(candidate2)
+                    ischildren(other) = true;
+                    childrens = [childrens, ', ', dirnames{other}, '/', filenames{other}, '.m'];
+                    break;
+                end
+            end
+        end
+    end
 end
