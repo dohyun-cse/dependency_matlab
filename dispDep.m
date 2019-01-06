@@ -105,7 +105,7 @@ orgLineWidth = h.LineWidth;
 
 % Set highlight function when it is pressed
 adj = adjacency(G);
-set(h, 'ButtonDownFcn', @(H, ~) highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
+set(h, 'ButtonDownFcn', @(H, ~) clickcallback(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
 set(ax, 'ButtonDownFcn', @(~, ~) dehighlightFun(h, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
 button1 = uicontrol('Parent',fig,'Style','pushbutton','string','Search', 'visible','on');
 button1.Callback = @(~,~) search_file(h, adj, G);
@@ -117,6 +117,28 @@ end
 end
 %%
 %========================================================== end of function
+
+function clickcallback(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth)
+persistent chk
+if isempty(chk)
+    chk = 1;
+    pause(0.2); %Add a delay to distinguish single click from a double click
+    if chk == 1
+        highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth);
+        chk = [];
+    end
+else
+    chk = [];
+    % find selected node id
+    p = get(h.Parent, 'CurrentPoint'); % mouse click position
+    x = p(1,1); y = p(1,2);
+    [~,nodeID] = min((h.XData-x).^2/diff(get(h.Parent,'XLim'))^2+(h.YData-y).^2/diff(get(h.Parent,'YLim'))^2); % min distance node
+    edit(G.Nodes.Row{nodeID});
+end
+end
+%%
+%======================================================= end of subfunction
+
 
 function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth)
     persistent  parentax subfig subax subh subG subid subnode
@@ -225,7 +247,7 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
         orgLineWidth = subh{me}.LineWidth;
         
         % set highlight and dehighlight functions
-        set(subh{me}, 'ButtonDownFcn', @(H, ~) highlightFun(subh{me}, subG{me}.adjacency, subG{me}, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
+        set(subh{me}, 'ButtonDownFcn', @(H, ~) clickcallback(subh{me}, subG{me}.adjacency, subG{me}, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
         set(subax{me}, 'ButtonDownFcn', @(~, ~) dehighlightFun(subh{me}, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
         
         % search button
