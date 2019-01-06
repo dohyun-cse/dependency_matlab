@@ -57,7 +57,7 @@ end
 if ischar(G_or_directory) % if it is a path
     try
         directory = strrep(G_or_directory, filesep, '/');
-        G = load([directory '/.dependency/G.mat']);
+        G = load([directory '/.dependency/dependency.mat']);
         G = G.G;
     catch
         G = genDep(G_or_directory);
