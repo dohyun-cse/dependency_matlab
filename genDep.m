@@ -29,7 +29,7 @@ function GG = genDep(directory, varargin)
 % See also, DISPDEPENDENCY
 % 
 %% DATE         : August 06, 2018
-%% VERSION      : 2.00
+%% VERSION      : 2.01
 %% MATLAB ver.  : 9.5.0.944444 (R2018b)
 %% AUTHOR       : Dohyun Kim
 %% CONTACT      : kim92n@gmail.com

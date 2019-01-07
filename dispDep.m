@@ -39,7 +39,7 @@ function [H, G] = dispDep(G_or_directory)
 % See also, GENDEPENDENCY, HIGHLIGHTFUN
 %
 %% DATE         : August 04, 2018
-%% VERSION      : 2.00
+%% VERSION      : 2.01
 %% MATLAB ver.  : 9.5.0.944444 (R2018b)
 %% AUTHOR       : Dohyun Kim
 %% CONTACT      : kim92n@gmail.com
