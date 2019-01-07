@@ -90,7 +90,7 @@ for n = 1:nrfiles
         childrennames{n} = childrennames{n}(3:end);
     end
 end
-
+old_numbering_string_length = length(counting_string);
 counting_string = sprintf('%i/%i\n', n, nrfiles);
 fprintf(1, [repmat('\b',1,old_numbering_string_length), '%s'],  counting_string)
 

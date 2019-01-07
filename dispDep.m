@@ -88,9 +88,11 @@ set(ax,'XColor','none');
 set(ax,'YColor','none');
 set(ax,'color','none');
 ax.Box = 'off';
+ax.OuterPosition(1) = 0;
+ax.OuterPosition(3) = 1;
 ax.Position(1) = 0;
-ax.Position(3) = 0.88;
-
+ax.Position(3) = 1;
+ax.XDir = 'reverse';
 
 % highlight main scripts as pink
 ismain = contains(G.Nodes.Row, 'main');
@@ -106,6 +108,7 @@ orgLineWidth = h.LineWidth;
 adj = adjacency(G);
 set(h, 'ButtonDownFcn', @(H, ~) clickcallback(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
 set(ax, 'ButtonDownFcn', @(~, ~) dehighlightFun(h, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
+set(fig,'windowscrollwheelfcn',@(obj, evnt) wheelcallback(obj, evnt, ax));
 button1 = uicontrol('Parent',fig,'Style','pushbutton','string','Search', 'visible','on');
 button1.Callback = @(~,~) search_file(h, adj, G);
 
@@ -235,9 +238,12 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
         set(subax{me},'XColor','none');
         set(subax{me},'YColor','none');
         set(subax{me},'color','none');
-        subax{me}.Box = 'off';
+        set(subax{me},'XDir','reverse');
+        set(subax{me},'Box','off');
+        subax{me}.OuterPosition(1) = 0;
+        subax{me}.OuterPosition(3) = 1;
         subax{me}.Position(1) = 0;
-        subax{me}.Position(3) = 0.88;
+        subax{me}.Position(3) = 1;
         
         % get current color
         orgNodeColor = subh{me}.NodeColor;
@@ -248,6 +254,7 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
         % set highlight and dehighlight functions
         set(subh{me}, 'ButtonDownFcn', @(H, ~) clickcallback(subh{me}, subG{me}.adjacency, subG{me}, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
         set(subax{me}, 'ButtonDownFcn', @(~, ~) dehighlightFun(subh{me}, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
+        set(subfig{me},'windowscrollwheelfcn',@(obj, evnt) wheelcallback(obj, evnt, subax{me}));
         
         % search button
         button1 = uicontrol('Parent',subfig{me},'Style','pushbutton','string','Search', 'visible','on');
@@ -282,7 +289,7 @@ function dehighlightFun(h, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWid
     h.Parent.Title.String{2} = '..';
 end
 %%
-% ======================================================= end of subfunction
+% ====================================================== end of subfunction
 
 
 function newparents = highlightParents(h, nodeID, adj)
@@ -421,5 +428,25 @@ end
 %======================================================= end of subfunction
 
 
+function wheelcallback(object, eventdata, ax)
+modifier = object.CurrentModifier;
+if length(modifier)>1 % if more than one key is pressed
+    return; % do nothing
+end
+
+if isempty(modifier) % if nothing is pressed
+    ax.XLim = ((ax.XLim - ax.CurrentPoint(1)) * 1.2^eventdata.VerticalScrollCount) + ax.CurrentPoint(1);
+    ax.YLim = ((ax.YLim - ax.CurrentPoint(2)) * 1.5^eventdata.VerticalScrollCount) + ax.CurrentPoint(2);
+    return;
+end
+switch modifier{1}
+    case 'shift'
+        ax.XLim = ax.XLim - eventdata.VerticalScrollCount * 0.3;
+    case 'control'
+        ax.YLim = ax.YLim + eventdata.VerticalScrollCount * 5;
+end
+end
+%%
+%======================================================= end of subfunction
 %%
 %============================================================== end of file
