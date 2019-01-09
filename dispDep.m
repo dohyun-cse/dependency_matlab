@@ -79,17 +79,12 @@ for i = 1 : length(dirlist)
     plot(NaN,NaN,'color',clist(mod(i-1,size(clist,1))+1,:),'linestyle','none','marker','o','markerfacecolor',clist(mod(i-1,size(clist,1))+1,:), 'tag', num2str(i));
 end
 
+% G = digraph(G.adjacency.', G.Nodes);
 % plot graph
 h = plot(G,'nodelabel',G.Nodes.Short_Name,'nodecolor',clist(1,:),'edgecolor',clist(1,:));
 % highlight main scripts as pink
 ismain = contains(G.Nodes.Row, 'main');
 layout(h,'layered','Direction','left','sinks',find(ismain),'assignlayers','asap');
-
-% current original color
-orgNodeColor = h.NodeColor;
-orgMarkerSize = h.MarkerSize;
-orgEdgeColor = h.EdgeColor;
-orgLineWidth = h.LineWidth;
 
 for i = 1 : length(dirlist)
     if isempty(dirlist{i})
@@ -98,8 +93,16 @@ for i = 1 : length(dirlist)
     % highlight node by directory
     highlight(h, find(idx == i), 'nodecolor', clist(mod(i-1,size(clist,1))+1,:));
 end
-highlight(h,find(ismain),'nodecolor',[1,0.5,0.5],'markersize',12);
+if any(ismain)
+    highlight(h,find(ismain),'nodecolor',[1,0.5,0.5],'markersize',12);
+end
 leg = legend(dirlist,'interpreter','none');
+
+% current original color
+orgNodeColor = h.NodeColor;
+orgMarkerSize = h.MarkerSize;
+orgEdgeColor = h.EdgeColor;
+orgLineWidth = h.LineWidth;
 
 matlabversion = ver('MATLAB');
 if matlabversion.Version >= 9.5
@@ -127,7 +130,7 @@ adj = adjacency(G);
 set(leg, 'ItemHitFcn', @(~,event) legHitFcn(event, h, idx, orgMarkerSize));
 set(h, 'ButtonDownFcn', @(H, ~) clickcallback(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
 set(ax, 'ButtonDownFcn', @(~, ~) dehighlightFun(h, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
-set(fig,'windowscrollwheelfcn',@(obj, evnt) wheelcallback(obj, evnt, ax));
+% set(fig,'windowscrollwheelfcn',@(obj, evnt) wheelcallback(obj, evnt, ax));
 button1 = uicontrol('Parent',fig,'Style','pushbutton','string','Search', 'visible','on');
 button1.Callback = @(~,~) search_file(h, adj, G);
 
@@ -272,7 +275,7 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
         % set highlight and dehighlight functions
         set(subh{me}, 'ButtonDownFcn', @(H, ~) clickcallback(subh{me}, subG{me}.adjacency, subG{me}, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
         set(subax{me}, 'ButtonDownFcn', @(~, ~) dehighlightFun(subh{me}, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
-        set(subfig{me},'windowscrollwheelfcn',@(obj, evnt) wheelcallback(obj, evnt, subax{me}));
+%         set(subfig{me},'windowscrollwheelfcn',@(obj, evnt) wheelcallback(obj, evnt, subax{me}));
         
         % search button
         button1 = uicontrol('Parent',subfig{me},'Style','pushbutton','string','Search', 'visible','on');
@@ -326,8 +329,10 @@ function newparents = highlightParents(h, nodeID, adj)
     [from, to] = find(adj);
     
     % highlight parent node and edge
-    highlight(h,to,'nodecolor','m','markersize',12);
-    highlight(h,from,to,'edgecolor','m','linewidth',2);
+    highlight(h,to,'nodecolor',[0.9,0.7,0.9],'markersize',12);
+    highlight(h,from,to,'edgecolor',[0.9,0.7,0.9],'linewidth',2);
+    highlight(h,find(adj(nodeID, :)), 'nodecolor','m');
+    highlight(h,nodeID, find(adj(nodeID, :)), 'edgecolor','m');
     
     newparents = unique(to);
 end
@@ -351,8 +356,10 @@ function newchildren = highlightChildren(h, nodeID, adj)
     [from, to] = find(adj);
     
     % highlight parent node and edge
-    highlight(h,from,'nodecolor','b','markersize',12);
-    highlight(h,from,to,'edgecolor','b','linewidth',2);
+    highlight(h,from,'nodecolor',[0.7,0.7,0.9],'markersize',12);
+    highlight(h,from,to,'edgecolor',[0.7,0.7,0.9],'linewidth',2);
+    highlight(h,find(adj(:, nodeID)), 'nodecolor','b');
+    highlight(h,find(adj(:, nodeID)), nodeID, 'edgecolor','b');
     
     newchildren = unique(from);
 end
@@ -446,24 +453,24 @@ end
 %======================================================= end of subfunction
 
 
-function wheelcallback(object, eventdata, ax)
-modifier = object.CurrentModifier;
-if length(modifier)>1 % if more than one key is pressed
-    return; % do nothing
-end
-
-if isempty(modifier) % if nothing is pressed
-    ax.XLim = ((ax.XLim - ax.CurrentPoint(1)) * 1.2^eventdata.VerticalScrollCount) + ax.CurrentPoint(1);
-    ax.YLim = ((ax.YLim - ax.CurrentPoint(2)) * 1.5^eventdata.VerticalScrollCount) + ax.CurrentPoint(2);
-    return;
-end
-switch modifier{1}
-    case 'shift'
-        ax.XLim = ax.XLim - eventdata.VerticalScrollCount * 0.3;
-    case 'control'
-        ax.YLim = ax.YLim + eventdata.VerticalScrollCount * 5;
-end
-end
+% function wheelcallback(object, eventdata, ax)
+% modifier = object.CurrentModifier;
+% if length(modifier)>1 % if more than one key is pressed
+%     return; % do nothing
+% end
+% 
+% if isempty(modifier) % if nothing is pressed
+%     ax.XLim = ((ax.XLim - ax.CurrentPoint(1)) * 1.2^eventdata.VerticalScrollCount) + ax.CurrentPoint(1);
+%     ax.YLim = ((ax.YLim - ax.CurrentPoint(2)) * 1.5^eventdata.VerticalScrollCount) + ax.CurrentPoint(2);
+%     return;
+% end
+% switch modifier{1}
+%     case 'shift'
+%         ax.XLim = ax.XLim - eventdata.VerticalScrollCount * 0.3;
+%     case 'control'
+%         ax.YLim = ax.YLim + eventdata.VerticalScrollCount * 5;
+% end
+% end
 %%
 %======================================================= end of subfunction
 
