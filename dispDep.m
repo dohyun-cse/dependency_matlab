@@ -71,8 +71,36 @@ end
 fig = figure('windowstate','maximize');
 ax = axes(fig);
 
-h = plot(G,'nodelabel',G.Nodes.Short_Name);
-layout(h,'layered','Direction','right');
+% Highlight legend dummy plot
+clist = get(0, 'defaultAxesColorOrder');
+[dirlist, ~,idx] = unique(G.Nodes.Directory);
+hold on;
+for i = 1 : length(dirlist)
+    plot(NaN,NaN,'color',clist(mod(i-1,size(clist,1))+1,:),'linestyle','none','marker','o','markerfacecolor',clist(mod(i-1,size(clist,1))+1,:), 'tag', num2str(i));
+end
+
+% plot graph
+h = plot(G,'nodelabel',G.Nodes.Short_Name,'nodecolor',clist(1,:),'edgecolor',clist(1,:));
+% highlight main scripts as pink
+ismain = contains(G.Nodes.Row, 'main');
+layout(h,'layered','Direction','left','sinks',find(ismain),'assignlayers','asap');
+
+% current original color
+orgNodeColor = h.NodeColor;
+orgMarkerSize = h.MarkerSize;
+orgEdgeColor = h.EdgeColor;
+orgLineWidth = h.LineWidth;
+
+for i = 1 : length(dirlist)
+    if isempty(dirlist{i})
+        dirlist{i} = 'root';
+    end
+    % highlight node by directory
+    highlight(h, find(idx == i), 'nodecolor', clist(mod(i-1,size(clist,1))+1,:));
+end
+highlight(h,find(ismain),'nodecolor',[1,0.5,0.5],'markersize',12);
+leg = legend(dirlist,'interpreter','none');
+
 matlabversion = ver('MATLAB');
 if matlabversion.Version >= 9.5
     h.Interpreter = 'none';
@@ -92,20 +120,11 @@ ax.OuterPosition(1) = 0;
 ax.OuterPosition(3) = 1;
 ax.Position(1) = 0;
 ax.Position(3) = 1;
-ax.XDir = 'reverse';
 
-% highlight main scripts as pink
-ismain = contains(G.Nodes.Row, 'main');
-highlight(h,find(ismain),'nodecolor',[1,0.5,0.5],'markersize',12);
-
-% current original color
-orgNodeColor = h.NodeColor;
-orgMarkerSize = h.MarkerSize;
-orgEdgeColor = h.EdgeColor;
-orgLineWidth = h.LineWidth;
 
 % Set highlight function when it is pressed
 adj = adjacency(G);
+set(leg, 'ItemHitFcn', @(~,event) legHitFcn(event, h, idx, orgMarkerSize));
 set(h, 'ButtonDownFcn', @(H, ~) clickcallback(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
 set(ax, 'ButtonDownFcn', @(~, ~) dehighlightFun(h, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
 set(fig,'windowscrollwheelfcn',@(obj, evnt) wheelcallback(obj, evnt, ax));
@@ -221,7 +240,7 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
         
         % draw subG
         subh{me} = plot(subax{me}, subG{me},'nodelabel',subG{me}.Nodes.Short_Name);
-        layout(subh{me},'layered','Direction','right');
+        layout(subh{me},'layered','Direction','left');
         matlabversion = ver('MATLAB');
         if matlabversion.Version >= 9.5
             subh{me}.Interpreter = 'none';
@@ -238,7 +257,6 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
         set(subax{me},'XColor','none');
         set(subax{me},'YColor','none');
         set(subax{me},'color','none');
-        set(subax{me},'XDir','reverse');
         set(subax{me},'Box','off');
         subax{me}.OuterPosition(1) = 0;
         subax{me}.OuterPosition(3) = 1;
@@ -448,5 +466,11 @@ end
 end
 %%
 %======================================================= end of subfunction
+
+
+function legHitFcn(event, h, idx,orgMarkerSize)
+h.MarkerSize = orgMarkerSize;
+highlight(h, find(idx == str2double(event.Peer.Tag)), 'markersize', 10);
+end
 %%
 %============================================================== end of file
