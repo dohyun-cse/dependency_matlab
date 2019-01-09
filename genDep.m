@@ -46,6 +46,21 @@ files = dir(sprintf('%s/**/*.m',directory)); % get all matlab files
 
 dirnames = strrep(dirnames, filesep, '/');
 filenames = strrep(filenames, '.m', '');
+if length(unique(filenames)) ~= length(filenames)
+    warning('A repeated filename detected. The result may not be accurate.')
+    [ufilenames,~,bak] = unique(filenames);
+    warning(['Repeated names: ', ...
+        sprintf('%s, ', ufilenames{accumarray(bak,1,[length(ufilenames),1])>1}), ...
+        sprintf('\b\b')]);
+end
+
+if any(cellfun(@iskeyword,filenames))
+    warning('A keyword name detected')
+    
+    warning(['Keyward names: ', ...
+        sprintf('%s, ', filenames{cellfun(@iskeyword,filenames)}), ...
+        sprintf('\b\b')]);
+end
 
 nrfiles = length(filenames);
 
@@ -56,7 +71,6 @@ clearvars files
 fprintf('\nAnalyzing file ')
 
 paths = cell(size(filenames));
-childrennames = cell(size(filenames));
 adj = false(nrfiles, nrfiles);
 counting_string = '';
 
@@ -78,43 +92,20 @@ for n = 1:nrfiles
     filecontent = regexprep(filecontent, '''[^''\n]*''', '');
     % remove linecontinuation
     filecontent = regexprep(filecontent, '\.\.\.\s*', '');
-    % remove function definition
+    % remove function definitions to remove false self referencing
     filecontent = regexprep(filecontent, 'function [^\n]*', '');
-    % check whether filename appears or not
-    adj(:,n) = cellfun(@(str) contains(filecontent, str), filenames);
-    for m = find(adj(:,n).')
-        othername = filenames{m};
-        pos = strfind(filecontent, othername);
-        flag = false;
-        for pos1 = pos
-            pos2 = pos1 + length(othername) - 1;
-            if pos1 == 1
-                candidate1 = '1';
-            else
-                candidate1 = filecontent(pos1 - 1 : pos2);
-            end
-            if pos2 == length(filecontent)
-                candidate2 = '1';
-            else
-                candidate2 = filecontent(pos1 : pos2 + 1);
-            end
-            if ~(isvarname(candidate1) || isvarname(candidate2))
-                flag = true;
-                break;
-            end
-        end
-        if ~flag
-            adj(m,n) = true;
-        end
-    end
+    % find filename which does not have alphabet before and alphanumeric_ after.
+    adj(:,n) = cellfun(@(filename) ~isempty(regexp(filecontent, ['\W', filename, '\W'], 'once')), filenames);
+    
 end
 old_numbering_string_length = length(counting_string);
 counting_string = sprintf('%i/%i\n', n, nrfiles);
 fprintf(1, [repmat('\b',1,old_numbering_string_length), '%s'],  counting_string)
 
-T = table(filenames(:), childrennames(:), 'RowNames', paths(:));
-T.Properties.VariableNames = {'Short_Name', 'Children'};
-[T, idx] = sortrows(T,'RowNames');
+T = table(filenames(:), cellfun(@(dirname) strrep(dirname, directory, ''), dirnames(:), 'un', false), 'RowNames', paths(:));
+T.Properties.VariableNames = {'Short_Name', 'Directory'};
+% T.Description
+[T, idx] = sortrows(T, 'RowNames');
 
 adj = adj(idx, idx);
 G = digraph(adj, T);
