@@ -105,7 +105,7 @@ orgEdgeColor = h.EdgeColor;
 orgLineWidth = h.LineWidth;
 
 matlabversion = ver('MATLAB');
-if matlabversion.Version >= 9.5
+if str2double(matlabversion.Version) >= 9.5
     h.Interpreter = 'none';
     h.NodeFontSize = 12;
 end
