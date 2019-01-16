@@ -66,6 +66,12 @@ elseif isa(G_or_directory,'digraph') % if it is a dependency
     directory = [];
 end
 
+matlabversion = ver('MATLAB');
+matlabversion = str2double(matlabversion.Version);
+if matlabversion < 9.5
+    G.Nodes.Short_Name = cellfun(@(name) strrep(name, '_', ' '), G.Nodes.Short_Name, 'un', false);
+end
+
 %% DISPLAY
 
 fig = figure('windowstate','maximize');
@@ -84,7 +90,11 @@ end
 h = plot(G,'nodelabel',G.Nodes.Short_Name,'nodecolor',clist(1,:),'edgecolor',clist(1,:));
 % highlight main scripts as pink
 ismain = contains(G.Nodes.Row, 'main');
-layout(h,'layered','Direction','left','sinks',find(ismain),'assignlayers','asap');
+if any(ismain)
+    layout(h,'layered','Direction','left','sinks',find(ismain),'assignlayers','asap');
+else
+    layout(h,'layered','Direction','left','assignlayers','asap');
+end
 
 for i = 1 : length(dirlist)
     if isempty(dirlist{i})
@@ -104,8 +114,7 @@ orgMarkerSize = h.MarkerSize;
 orgEdgeColor = h.EdgeColor;
 orgLineWidth = h.LineWidth;
 
-matlabversion = ver('MATLAB');
-if str2double(matlabversion.Version) >= 9.5
+if matlabversion >= 9.5
     h.Interpreter = 'none';
     h.NodeFontSize = 12;
 end
