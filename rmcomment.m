@@ -21,7 +21,7 @@ txt = cellfun(@(str) regexprep(str, '((^|\n)\s*%\{\s*\n([^\n]|\n)*?(\n\s*%\}))',
 txt = cellfun(@(str) regexprep(str, '((^|\n)[^''%\n]*(((?<!(\w|\.|\]|\)|\}))''[^''\n]*'')[^%\n]*)*)%[^\n]*', '$1'), txt, 'un', false);
 % delete everything after line continuations
 % find ... outside of the string
-txt = cellfun(@(str) regexprep(str, '((^|\n)[^''\n]*(((?<!(\w|\.|\]|\)|\}))''[^''\n]*'')[^\n]*)*?\.{3,})[^\n]*', '$1'), txt, 'un', false);
+txt = cellfun(@(str) regexprep(str, '((^|\n)[^''\n]*(((?<!(\w|\.|\]|\)|\}))''[^''\n]*'')[^\n]*)*?)\.{3,}[^\n]*[\s]*', '$1'), txt, 'un', false);
 
 % delete tailing white space
 txt = cellfun(@(str) regexprep(str, '[^\S\n]+($|\n)', '$1'), txt, 'un', false);
