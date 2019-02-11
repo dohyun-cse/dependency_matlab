@@ -1,40 +1,37 @@
-function GG = genDep(directory, varargin)
-% <SYNTAX>
+function GG = genDep(directory)
+% genDep generates dependency graph
 %
-% genDep
-% genDep directory
-% G = genDep(directory);
-% G = genDep();
-% 
+% <SYNTAX>
+%   GG = genDep(directory);
+%
 % <DESCRIPTION>
-% 
-% GENDEP generates dependency graph for given directory including
-% its subfolder.
-% When GENDEP is called without input, generates dependency graph
+% genDep(directory) generates dependency graph for given directory
+% including its subfolder.
+% When genDep is called without input, generates dependency graph
 % for current folder.
-% 
-% Input:
-%		directory
-%			Optional, string, default = pwd
-%			target directory
-% 
-% Output:
-%		GG
-%			digraph
-%			directed graph (callee -> caller).
-%           GG.Nodes is a table of
-%           <relative path>  Short_Name  Date  Children
-%           where relative path does not contains its top level path.
-% 
-% See also, DISPDEPENDENCY
-% 
-%% DATE         : August 06, 2018
-%% VERSION      : 2.01
-%% MATLAB ver.  : 9.5.0.944444 (R2018b)
-%% AUTHOR       : Dohyun Kim
-%% CONTACT      : kim92n@gmail.com
-%=========================================================end of definition
-%%
+% Resulting dependency graph will be stored in
+% /.dependency/dependency.mat
+% with variable name G which is digraph with filename table as nodes
+%
+% GG = genDep(_) returns dependency graph
+%
+% <INPUT>
+%     - directory (string)
+%          directory name to generate dependency graph. defualt: current folder
+%
+% <OUTPUT>
+%     - GG (digraph)
+%          dependency graph
+%
+% See also dispDep, rmcomment
+
+% Copyright 2019 Dohyun Kim / CC BY-NC
+
+% Contact: kim92n@gmail.com
+% Developed using MATLAB.ver 9.5 (R2018b) on Microsoft Windows 10 Enterprise
+
+%% PARSING
+
 if nargin == 0
     directory = pwd;
 end
@@ -56,7 +53,7 @@ end
 
 if any(cellfun(@iskeyword,filenames))
     warning('A keyword name detected')
-    
+
     warning(['Keyward names: ', ...
         sprintf('%s, ', filenames{cellfun(@iskeyword,filenames)}), ...
         sprintf('\b\b')]);
@@ -66,7 +63,7 @@ nrfiles = length(filenames);
 
 clearvars files
 
-%%
+%% GENERATE DEPENDENCY
 
 fprintf('\nAnalyzing file ')
 
@@ -96,11 +93,13 @@ for n = 1:nrfiles
     filecontent = regexprep(filecontent, 'function [^\n]*', '');
     % find filename which does not have alphabet before and alphanumeric_ after.
     adj(:,n) = cellfun(@(filename) ~isempty(regexp(filecontent, ['\W', filename, '\W'], 'once')), filenames);
-    
+
 end
 old_numbering_string_length = length(counting_string);
 counting_string = sprintf('%i/%i\n', n, nrfiles);
 fprintf(1, [repmat('\b',1,old_numbering_string_length), '%s'],  counting_string)
+
+%% MAKE TABLE and GRAPH
 
 T = table(filenames(:), cellfun(@(dirname) strrep(dirname, directory, ''), dirnames(:), 'un', false), 'RowNames', paths(:));
 T.Properties.VariableNames = {'Short_Name', 'Directory'};
@@ -109,6 +108,8 @@ T.Properties.VariableNames = {'Short_Name', 'Directory'};
 
 adj = adj(idx, idx);
 G = digraph(adj, T);
+
+%% SAVE and RETURN
 
 if ~isfolder([directory, '/.dependency']) % if folder does not exists
     mkdir([directory, '/.dependency']) % create folder
