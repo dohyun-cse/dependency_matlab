@@ -1,76 +1,101 @@
-function [H, G] = dispDep(G_or_directory)
-% <SYNTAX>
+function [H, G] = dispDep(varargin)
+% dispDep displays dependency plot
 %
-% [H, G] = dispDep()
-% [H, G] = dispDep(directory)
-% [H, G] = dispDep(G)
+% <SYNTAX>
+%   dispDep
+%   dispDep folder
+%   dispDep __ -except folder1, ..., folderN
+%   dispDep __ -include folder1, ..., folderN
+%   [H,G] = dispDep(_);
 %
 % <DESCRIPTION>
+% dispDep displays dependency graph of current folder.
+% The resulting plot has following functionalities
+%    1. Click node to highlight
+%         1) Itself
+%         2) Direct parent/children
+%         3) grand-parents and children
+%    2. Hold shift while click node to highlight multiple node
+%    3. Hold ctrl while click node to show new figure
+%       only include highlighted node and its related nodes
+%       (if you want to have figure generated from multiple nodes,
+%        hold shift together)
+%       - The new figure have export feature
+%         so that you can create new folder only containing currently
+%         displayed codes.
+%         The directory hierarchy follows that of the original project.
 %
-% DISPDEP displays dependency plot from the table T and digraph G
-% when a file is clicked, that file and its children and parents will be
-% highlighted.
+% <INPUT>
+%     - folder (graph)
+%          directory you want to display dependency
+%          default: current directory
+% <OPTION>
+%     - except
+%          Folder names to be excluded.
+%          Folder name should be started with '/'
+%          case sensitive.
+%          file seperation should be '/'
+%          relative path to target directory
+%     - include
+%          Folder names to be included among except
+%          Folder name should follows the rule for the except
+%     - G (digraph)
+%          dependency graph
 %
-% [H, G] = dispDep() plot file hierarchy of current folder.
 %
-% [H, G] = dispDep(directory) plot file hierarchy of selected
-% directory including its subfolders.
-% 
-% H = dispDep(G) plot file hierachy of given graph G. This is useful
-% when G is already constructed by <genDependency>.
-% 
-% Input:
-%       directory
-%           Optional, string
-%           folder name
-%		G
-%			Optional, digraph
-%			dependency graph
-%       
-% 
-% Output:
-%		H
-%			plot handle
-%			graph
-%       G
-%           digraph
-%           dependency graph
 %
-% See also, GENDEPENDENCY, HIGHLIGHTFUN
+% <OUTPUT>
+%     - H (graph)
+%          plot handle
+%     - G (digraph)
+%          dependency graph
 %
-%% DATE         : August 04, 2018
-%% VERSION      : 2.01
-%% MATLAB ver.  : 9.5.0.944444 (R2018b)
-%% AUTHOR       : Dohyun Kim
-%% CONTACT      : kim92n@gmail.com
+% See also genDep
 
-%======================================================== end of definition
+% Copyright 2019 Dohyun Kim / CC BY-NC
+
+% Contact: kim92n@gmail.com
+% Developed using MATLAB.ver 9.5 (R2018b) on Microsoft Windows 10 Enterprise
+
 %% PARSING
 
-if nargin > 1
-    error('Input arguments should be directory or digraph')
-end
-if nargin == 0 % if there is no input
-    G_or_directory = pwd;
-end
-if ischar(G_or_directory) % if it is a path
-    try
-        directory = strrep(G_or_directory, filesep, '/');
-        G = load([directory '/.dependency/dependency.mat']);
-        G = G.G;
-    catch
-        G = genDep(G_or_directory);
+idx = 1;
+if nargin > 0 && ~strcmp(varargin{1}(1), '-')
+    foldername = varargin{1};
+    if ~isfolder(varargin{1})
+        error('The first input without ''-'' should be directory');
+    else
+        directory = foldername;
+        idx = 2;
     end
-elseif isa(G_or_directory,'digraph') % if it is a dependency
-    G = G_or_directory; % take it
-    directory = [];
+else
+    foldername = pwd;
+    directory = '';
 end
 
-matlabversion = ver('MATLAB');
-matlabversion = str2double(matlabversion.Version);
-if matlabversion < 9.5
-    G.Nodes.Short_Name = cellfun(@(name) strrep(name, '_', ' '), G.Nodes.Short_Name, 'un', false);
+try
+    G = load([strrep(foldername, filesep, '/') '/.dependency/dependency.mat'], 'G');
+    G = G.G;
+catch
+    G = genDep(foldername);
 end
+
+opt = struct('except', [], 'include', []);
+for i = idx : nargin
+    if strcmp(varargin{i}(1),'-')
+        optname = varargin{i}(2:end);
+    else
+        opt.(optname) = [opt.(optname)(:)', varargin(i)];
+    end
+end
+isdisp = true(height(G.Nodes), 1);
+for folder = opt.except
+    isdisp(strcmp(G.Nodes.Directory, folder)) = false;
+end
+for folder = opt.include
+    isdisp(strcmp(G.Nodes.Directory, folder)) = true;
+end
+G = subgraph(G, isdisp);
 
 %% DISPLAY
 
@@ -85,16 +110,11 @@ for i = 1 : length(dirlist)
     plot(NaN,NaN,'color',clist(mod(i-1,size(clist,1))+1,:),'linestyle','none','marker','o','markerfacecolor',clist(mod(i-1,size(clist,1))+1,:), 'tag', num2str(i));
 end
 
-% G = digraph(G.adjacency.', G.Nodes);
 % plot graph
 h = plot(G,'nodelabel',G.Nodes.Short_Name,'nodecolor',clist(1,:),'edgecolor',clist(1,:));
 % highlight main scripts as pink
 ismain = contains(G.Nodes.Row, 'main');
-if any(ismain)
-    layout(h,'layered','Direction','left','sinks',find(ismain),'assignlayers','asap');
-else
-    layout(h,'layered','Direction','left','assignlayers','asap');
-end
+layout(h,'layered','Direction','left','sinks',find(ismain),'assignlayers','asap');
 
 for i = 1 : length(dirlist)
     if isempty(dirlist{i})
@@ -114,7 +134,8 @@ orgMarkerSize = h.MarkerSize;
 orgEdgeColor = h.EdgeColor;
 orgLineWidth = h.LineWidth;
 
-if matlabversion >= 9.5
+matlabversion = ver('MATLAB');
+if str2double(matlabversion.Version) >= 9.5
     h.Interpreter = 'none';
     h.NodeFontSize = 12;
 end
@@ -132,7 +153,6 @@ ax.OuterPosition(1) = 0;
 ax.OuterPosition(3) = 1;
 ax.Position(1) = 0;
 ax.Position(3) = 1;
-
 
 % Set highlight function when it is pressed
 adj = adjacency(G);
@@ -172,14 +192,13 @@ end
 %%
 %======================================================= end of subfunction
 
-
 function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth)
     persistent  parentax subfig subax subh subG subid subnode
     % subid: node id of subgraph G relative to G
     % subnode : selected nodes to make subG
     if isempty(parentax) % if function is first excuted
         me = 1; % update current
-        parentax{me} = h.Parent; % 
+        parentax{me} = h.Parent; %
         subG = {}; subid = {[]}; subax = {}; subfig = {}; subnode = {[]};
     else
         me = [];
@@ -200,7 +219,7 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
     if ~any(strcmp(modifier,'shift'))
         dehighlightFun(h, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth);
     end
-    
+
     % find selected node id
     p = get(h.Parent, 'CurrentPoint'); % mouse click position
     x = p(1,1); y = p(1,2);
@@ -212,7 +231,7 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
     % get parents and children of current node
     parents = highlightParents(h, nodeID, adj);
     children = highlightChildren(h, nodeID, adj);
-    
+
     if any(strcmp(modifier,'shift')) % if shift key is pressed
         h.Parent.Title.String{2} = [h.Parent.Title.String{2}, ',   ', strrep(G.Nodes(nodeID,:).Row{1}, h.Parent.Title.String{1}, '')];
         if isempty(subnode{me}) % if there is no subnode
@@ -244,12 +263,12 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
             subfig{me}.Position(1:2) = screensize(3:4)/4;
             subfig{me}.Position(3:4) = screensize(3:4)/2;
         end
-        
+
         % new axis
         if isempty(subax) || length(subax) < me || ~isvalid(subax{me})
             subax{me} = axes(subfig{me});
         end
-        
+
         % draw subG
         subh{me} = plot(subax{me}, subG{me},'nodelabel',subG{me}.Nodes.Short_Name);
         layout(subh{me},'layered','Direction','left');
@@ -258,9 +277,15 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
             subh{me}.Interpreter = 'none';
             subh{me}.NodeFontSize = 12;
         end
-        
+
         % highlight selected node
         highlight(subh{me}, subnode{me}, 'nodecolor',[1,0.5,0.5],'markersize',15)
+
+        % get current color
+        orgNodeColor = subh{me}.NodeColor;
+        orgMarkerSize = subh{me}.MarkerSize;
+        orgEdgeColor = subh{me}.EdgeColor;
+        orgLineWidth = subh{me}.LineWidth;
 
         % appearance of axis
         title(subax{me}, h.Parent.Title.String);
@@ -274,41 +299,34 @@ function highlightFun(h, adj, G, orgNodeColor, orgMarkerSize, orgEdgeColor, orgL
         subax{me}.OuterPosition(3) = 1;
         subax{me}.Position(1) = 0;
         subax{me}.Position(3) = 1;
-        
-        % get current color
-        orgNodeColor = subh{me}.NodeColor;
-        orgMarkerSize = subh{me}.MarkerSize;
-        orgEdgeColor = subh{me}.EdgeColor;
-        orgLineWidth = subh{me}.LineWidth;
-        
+
         % set highlight and dehighlight functions
         set(subh{me}, 'ButtonDownFcn', @(H, ~) clickcallback(subh{me}, subG{me}.adjacency, subG{me}, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
         set(subax{me}, 'ButtonDownFcn', @(~, ~) dehighlightFun(subh{me}, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth));
 %         set(subfig{me},'windowscrollwheelfcn',@(obj, evnt) wheelcallback(obj, evnt, subax{me}));
-        
+
         % search button
         button1 = uicontrol('Parent',subfig{me},'Style','pushbutton','string','Search', 'visible','on');
         button1.Callback = @(~,~) search_file(subh{me}, subG{me}.adjacency, subG{me});
-        
+
         % export button
         button2 = uicontrol('Parent',subfig{me},'Style','pushbutton','string','export project', 'visible','on');
         button2.Position(1) = 2*button1.Position(1) + button1.Position(3);
         button2.Position(3) = button1.Position(3)*2;
         button2.Callback = @(~,~) export_project(subG{me});
-        
+
         % show persistent button
         button3 = uicontrol('Parent',subfig{me},'Style','pushbutton','string','show persistent', 'visible','on');
         button3.Position(1) = 2*button1.Position(1) + button1.Position(3) + button2.Position(3)*1.2;
         button3.Position(3) = button1.Position(3)*2;
         button3.Callback = @(~,~) show_persistent(subh{me}, subG{me});
-        
+
     end
-    
+
     drawnow;
 end
 %%
 %======================================================= end of subfunction
-
 
 function dehighlightFun(h, orgNodeColor, orgMarkerSize, orgEdgeColor, orgLineWidth)
     % set to original values
@@ -321,7 +339,6 @@ end
 %%
 % ====================================================== end of subfunction
 
-
 function newparents = highlightParents(h, nodeID, adj)
 
     parents = false(size(adj,1),1);
@@ -330,24 +347,23 @@ function newparents = highlightParents(h, nodeID, adj)
         newparents = any(adj(parents,:),1); % nodes connected FROM current node
         oldnum = nnz(parents); % current the number of nodes
         parents = parents(:) | newparents(:); % update parents
-        if nnz(parents) == oldnum % 
+        if nnz(parents) == oldnum %
             break;
         end
     end
     adj(~parents,:) = false;
     [from, to] = find(adj);
-    
+
     % highlight parent node and edge
     highlight(h,to,'nodecolor',[0.9,0.7,0.9],'markersize',12);
     highlight(h,from,to,'edgecolor',[0.9,0.7,0.9],'linewidth',2);
     highlight(h,find(adj(nodeID, :)), 'nodecolor','m');
     highlight(h,nodeID, find(adj(nodeID, :)), 'edgecolor','m');
-    
+
     newparents = unique(to);
 end
 %%
 %======================================================= end of subfunction
-
 
 function newchildren = highlightChildren(h, nodeID, adj)
 
@@ -357,24 +373,23 @@ function newchildren = highlightChildren(h, nodeID, adj)
         newchildren = any(adj(:,children),2); % nodes connected FROM current node
         oldnum = nnz(children); % current the number of nodes
         children = children(:) | newchildren(:); % update parents
-        if nnz(children) == oldnum % 
+        if nnz(children) == oldnum %
             break;
         end
     end
     adj(:,~children) = false;
     [from, to] = find(adj);
-    
+
     % highlight parent node and edge
     highlight(h,from,'nodecolor',[0.7,0.7,0.9],'markersize',12);
     highlight(h,from,to,'edgecolor',[0.7,0.7,0.9],'linewidth',2);
     highlight(h,find(adj(:, nodeID)), 'nodecolor','b');
     highlight(h,find(adj(:, nodeID)), nodeID, 'edgecolor','b');
-    
+
     newchildren = unique(from);
 end
 %%
 %======================================================= end of subfunction
-
 
 function export_project(G)
     % dialog setting
@@ -389,7 +404,7 @@ function export_project(G)
     end
     % make directory
     mkdir(newproj);
-    
+
     % copy files
     for i = 1 : height(G.Nodes)
         try
@@ -406,9 +421,8 @@ end
 %%
 %======================================================= end of subfunction
 
-
 function show_persistent(h, G)
-    
+
     ispersistent = false(length(G.Nodes.Row),1); % init
     for i = 1 : length(G.Nodes.Row) % for each file
         try
@@ -428,7 +442,6 @@ end
 %%
 %======================================================= end of subfunction
 
-
 function search_file(h, adj, G)
 
     % dialog setting
@@ -436,38 +449,37 @@ function search_file(h, adj, G)
     dlg_title = 'Search';
     % get filename
     filename = inputdlg(dlg_prompt, dlg_title, 1);
-    
+
     % find files which contains input filename
     hasnames = find(contains(G.Nodes.Short_Name, filename));
     switch numel(hasnames)
         case 0 % if there is no
             warndlg('There is no matching file. Try again'); % return warning
             return
-            
+
         case 1 % if there is
             nodeID = hasnames; % select that one
-            
+
         otherwise % if there are more than one file
             % select among them
             nodeID = hasnames(listdlg('PromptString', 'Select a file:', 'SelectionMode', 'single', 'ListString', G.Nodes.Short_Name(hasnames)));
     end
-    
+
     % highlight searched file
     highlight(h,nodeID,'nodecolor','r','markersize',15) % highlight current node
     highlightParents(h, nodeID, adj);
     highlightChildren(h, nodeID, adj);
-    
+
 end
 %%
 %======================================================= end of subfunction
-
 
 % function wheelcallback(object, eventdata, ax)
 % modifier = object.CurrentModifier;
 % if length(modifier)>1 % if more than one key is pressed
 %     return; % do nothing
 % end
-% 
+%
 % if isempty(modifier) % if nothing is pressed
 %     ax.XLim = ((ax.XLim - ax.CurrentPoint(1)) * 1.2^eventdata.VerticalScrollCount) + ax.CurrentPoint(1);
 %     ax.YLim = ((ax.YLim - ax.CurrentPoint(2)) * 1.5^eventdata.VerticalScrollCount) + ax.CurrentPoint(2);
@@ -482,7 +494,6 @@ end
 % end
 %%
 %======================================================= end of subfunction
-
 
 function legHitFcn(event, h, idx,orgMarkerSize)
 h.MarkerSize = orgMarkerSize;
